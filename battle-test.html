@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Numlings: live battle connection test</title>
+<meta name="robots" content="noindex">
+<style>
+  :root{--ink:#1B2848;--paper:#F4F8FC;--card:#FFFFFF;--line:#1B2848;--muted:#5B6782;--hl:#FFD43B;--good:#1F9D57;--bad:#D64545;--wait:#9AA3B5}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Lexend,"Segoe UI",system-ui,sans-serif;color:var(--ink);background:var(--paper);
+    background-image:linear-gradient(#DDE7F2 1px,transparent 1px),linear-gradient(90deg,#DDE7F2 1px,transparent 1px);background-size:24px 24px}
+  main{max-width:760px;margin:0 auto;padding:24px 16px 60px}
+  h1{font-size:2rem;margin:0 0 4px}
+  .sub{color:var(--muted);margin:0 0 20px}
+  .panel{background:var(--card);border:2px solid var(--line);border-radius:16px;padding:18px;margin-bottom:16px;box-shadow:0 5px 0 var(--line)}
+  .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+  button{font:700 1.05rem inherit;font-family:inherit;border:2px solid var(--line);border-radius:12px;padding:.7em 1.2em;background:#fff;color:var(--ink);cursor:pointer;box-shadow:0 3px 0 var(--line)}
+  button:active{transform:translateY(2px);box-shadow:0 1px 0 var(--line)}
+  button.primary{background:linear-gradient(#FFF0A8,#FFD43B 60%,#F2B731)}
+  button:disabled{opacity:.5;cursor:default}
+  input{font:700 1.4rem monospace;letter-spacing:.2em;text-transform:uppercase;width:8ch;padding:.45em .5em;border:2px solid var(--line);border-radius:12px;text-align:center}
+  .code{font:800 3.4rem monospace;letter-spacing:.25em;background:#FFF6CC;border:2px dashed var(--line);border-radius:14px;padding:.1em .5em;display:inline-block}
+  ol.steps{list-style:none;padding:0;margin:0;display:grid;gap:10px}
+  .steps li{display:grid;grid-template-columns:34px 1fr;gap:10px;align-items:start}
+  .dot{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-weight:800;color:#fff;background:var(--wait);border:2px solid var(--line)}
+  .ok .dot{background:var(--good)} .fail .dot{background:var(--bad)} .run .dot{background:#3D8DE0;animation:pulse 1s infinite}
+  @keyframes pulse{50%{opacity:.5}}
+  .steps b{display:block}.steps small{color:var(--muted);display:block;margin-top:2px}
+  .fail small{color:var(--bad)}
+  .result{font-size:1.25rem;font-weight:800;padding:14px;border-radius:12px;border:2px solid var(--line);display:none}
+  .result.good{display:block;background:#DDF5E6}.result.bad{display:block;background:#FBE0E0}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-top:12px}
+  .stat{border:2px solid var(--line);border-radius:12px;padding:10px;background:#F7FAFD}
+  .stat span{display:block;color:var(--muted);font-size:.85rem}.stat b{font-size:1.3rem}
+  .hi5{position:fixed;inset:0;display:grid;place-items:center;pointer-events:none;font-size:9rem;animation:pop 1.2s ease-out forwards}
+  @keyframes pop{0%{transform:scale(.3);opacity:0}25%{transform:scale(1.15);opacity:1}100%{transform:scale(1);opacity:0}}
+  .note{color:var(--muted);font-size:.92rem}
+  .hidden{display:none}
+</style>
+</head>
+<body>
+<main>
+  <h1>Live battle connection test</h1>
+  <p class="sub">Checks whether two Chromebooks on your school network can connect for live Numlings battles. Nothing about students is sent or saved.</p>
+
+  <div class="panel" id="choose">
+    <p><b>On the first Chromebook,</b> tap <b>Host</b>. <b>On the second,</b> type the code it shows and tap <b>Join</b>.</p>
+    <div class="row">
+      <button class="primary" id="hostBtn">Host</button>
+      <span class="note">or</span>
+      <input id="codeIn" maxlength="4" placeholder="CODE" autocomplete="off" aria-label="Code from the host">
+      <button id="joinBtn">Join</button>
+    </div>
+  </div>
+
+  <div class="panel hidden" id="hostBox">
+    <p>Your code. Type it on the other Chromebook:</p>
+    <div class="code" id="codeOut">····</div>
+  </div>
+
+  <div class="panel">
+    <ol class="steps" id="steps">
+      <li id="s1"><span class="dot">1</span><div><b>Load the connection tools</b><small>Waiting to start</small></div></li>
+      <li id="s2"><span class="dot">2</span><div><b>Reach the connection service</b><small>Waiting</small></div></li>
+      <li id="s3"><span class="dot">3</span><div><b>Connect the two Chromebooks</b><small>Waiting</small></div></li>
+      <li id="s4"><span class="dot">4</span><div><b>Send messages both ways</b><small>Waiting</small></div></li>
+    </ol>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <div class="panel hidden" id="live">
+    <div class="row"><button class="primary" id="hiBtn">✋ Send a high five</button><span class="note" id="hiNote"></span></div>
+    <div class="stats">
+      <div class="stat"><span>Round trip</span><b id="rtt">…</b></div>
+      <div class="stat"><span>Messages back and forth</span><b id="count">0</b></div>
+      <div class="stat"><span>Connection type</span><b id="ctype">checking…</b></div>
+    </div>
+    <p class="note" id="ctypeNote"></p>
+  </div>
+
+  <p class="note">Tip: try it once with both Chromebooks on the student Wi-Fi in your room. If it works, also try one Chromebook in another classroom.</p>
+</main>
+
+<script>
+/* Numlings live battle connection test.
+   Uses PeerJS (a small open-source library) and its free public connection service only to introduce the two
+   devices. After that, messages go straight from one Chromebook to the other. */
+const LIB = 'https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js';
+const PREFIX = 'nlbt-';
+const $ = id => document.getElementById(id);
+let peer = null, conn = null, sent = 0, got = 0, rtts = [], pingTimer = null, roleHost = false;
+
+function step(n, state, text) {
+  const li = $('s' + n); li.className = state; li.querySelector('small').textContent = text;
+  li.querySelector('.dot').textContent = state === 'ok' ? '✓' : state === 'fail' ? '✗' : n;
+}
+function finish(good, text) {
+  const r = $('result'); r.className = 'result ' + (good ? 'good' : 'bad'); r.textContent = text;
+}
+function loadLib() {
+  return new Promise((resolve, reject) => {
+    if (window.Peer) return resolve();
+    const s = document.createElement('script'); s.src = LIB;
+    const t = setTimeout(() => reject(new Error('timeout')), 12000);
+    s.onload = () => { clearTimeout(t); resolve(); };
+    s.onerror = () => { clearTimeout(t); reject(new Error('blocked')); };
+    document.head.appendChild(s);
+  });
+}
+const newCode = () => Array.from({ length: 4 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 32)]).join('');
+
+async function start(asHost, joinCode) {
+  roleHost = asHost;
+  $('hostBtn').disabled = $('joinBtn').disabled = true; $('codeIn').disabled = true;
+  step(1, 'run', 'Loading…');
+  try { await loadLib(); step(1, 'ok', 'Loaded'); }
+  catch (e) {
+    step(1, 'fail', 'Could not load the tools from cdn.jsdelivr.net. The district filter may block that site.');
+    return finish(false, '✗ Not working yet: the network blocked the connection tools (cdn.jsdelivr.net). Ask IT to allow that site, or we can use the Firebase option instead.');
+  }
+  step(2, 'run', 'Contacting the connection service…');
+  const code = asHost ? newCode() : joinCode;
+  const myId = asHost ? PREFIX + code.toLowerCase() : undefined;
+  peer = new Peer(myId, { debug: 1 });
+  const openTimer = setTimeout(() => {
+    step(2, 'fail', 'No answer from the connection service (0.peerjs.com). The district filter may block it.');
+    finish(false, '✗ Not working yet: the network blocked the free connection service (0.peerjs.com). Ask IT to allow it, or we can use the Firebase option instead.');
+  }, 12000);
+  peer.on('open', () => {
+    clearTimeout(openTimer);
+    step(2, 'ok', 'Connected to the service');
+    if (asHost) {
+      $('hostBox').classList.remove('hidden'); $('codeOut').textContent = code;
+      step(3, 'run', 'Waiting for the other Chromebook to join with code ' + code + '…');
+    } else {
+      step(3, 'run', 'Connecting to ' + code + '…');
+      setup(peer.connect(PREFIX + code.toLowerCase(), { reliable: true }));
+    }
+  });
+  peer.on('connection', c => { if (!conn) setup(c); });
+  peer.on('error', err => {
+    clearTimeout(openTimer);
+    if (err.type === 'unavailable-id') { peer.destroy(); return start(true); }   // code already in use: pick another
+    if (err.type === 'peer-unavailable') {
+      step(3, 'fail', 'No host found with that code. Check the code, and make sure the host page is still open.');
+      $('joinBtn').disabled = $('codeIn').disabled = false; return;
+    }
+    if (['network', 'server-error', 'socket-error', 'socket-closed'].includes(err.type)) {
+      step(2, 'fail', 'Lost contact with the connection service (' + err.type + ').');
+      return finish(false, '✗ Not working yet: the network blocked or dropped the connection service. Ask IT to allow 0.peerjs.com, or we can use Firebase instead.');
+    }
+    step(3, 'fail', 'Connection error: ' + err.type);
+    finish(false, '✗ Not working yet: ' + err.type + '. Send me a screenshot of this page.');
+  });
+}
+function setup(c) {
+  conn = c;
+  const connTimer = setTimeout(() => {
+    if (conn && conn.open) return;
+    step(3, 'fail', 'The two Chromebooks found each other but could not connect directly. The network firewall is likely blocking device-to-device connections.');
+    finish(false, '✗ Not working yet: the firewall blocks direct device-to-device connections (WebRTC). The Firebase option would work around this.');
+  }, 20000);
+  conn.on('open', () => {
+    clearTimeout(connTimer);
+    step(3, 'ok', 'The Chromebooks are connected');
+    step(4, 'run', 'Sending test messages…');
+    $('live').classList.remove('hidden');
+    pingTimer = setInterval(() => { if (conn.open) { conn.send({ t: 'ping', at: performance.now() }); sent++; } }, 1000);
+    setTimeout(checkType, 1500);
+  });
+  conn.on('data', d => {
+    if (!d || typeof d !== 'object') return;
+    if (d.t === 'ping') conn.send({ t: 'pong', at: d.at });
+    if (d.t === 'pong') {
+      got++; rtts.push(performance.now() - d.at); if (rtts.length > 10) rtts.shift();
+      const avg = Math.round(rtts.reduce((a, b) => a + b, 0) / rtts.length);
+      $('rtt').textContent = avg + ' ms'; $('count').textContent = got;
+      if (got === 3) {
+        step(4, 'ok', 'Messages are going both ways (about ' + avg + ' ms round trip)');
+        finish(true, '✓ It works! Live battles can run on this network. Average round trip: ' + avg + ' ms' + (avg < 250 ? ' (plenty fast for battles).' : ' (a little slow, but fine for turn-based battles).'));
+      }
+    }
+    if (d.t === 'hi5') { const h = document.createElement('div'); h.className = 'hi5'; h.textContent = '✋'; document.body.appendChild(h); setTimeout(() => h.remove(), 1300); $('hiNote').textContent = 'The other Chromebook sent a high five!'; }
+  });
+  conn.on('close', () => { clearInterval(pingTimer); step(4, 'fail', 'The other Chromebook closed the page or lost its connection.'); });
+}
+async function checkType() {
+  try {
+    const pc = conn.peerConnection; if (!pc) return;
+    const stats = await pc.getStats(); let pair = null; const cands = {};
+    stats.forEach(r => { if (r.type === 'candidate-pair' && (r.selected || r.nominated) && r.state === 'succeeded') pair = r; if (r.type === 'local-candidate' || r.type === 'remote-candidate') cands[r.id] = r; });
+    if (!pair) { stats.forEach(r => { if (r.type === 'transport' && r.selectedCandidatePairId) pair = stats.get(r.selectedCandidatePairId); }); }
+    const lc = pair && cands[pair.localCandidateId], rc = pair && cands[pair.remoteCandidateId];
+    const kind = lc ? lc.candidateType : 'unknown';
+    const label = { host: 'Same network, direct', srflx: 'Direct across networks', prflx: 'Direct', relay: 'Through a relay' }[kind] || 'Direct';
+    $('ctype').textContent = label;
+    $('ctypeNote').textContent = kind === 'host' ? 'The two Chromebooks are talking straight to each other over your school network, which is the best case.'
+      : kind === 'relay' ? 'Messages are being relayed. It works, but a district setting may slow it down.'
+      : 'The two Chromebooks are talking directly to each other.';
+  } catch (e) { $('ctype').textContent = 'Direct'; }
+}
+$('hostBtn').onclick = () => start(true);
+$('joinBtn').onclick = () => { const c = $('codeIn').value.trim().toUpperCase(); if (c.length === 4) start(false, c); else $('codeIn').focus(); };
+$('codeIn').addEventListener('keydown', e => { if (e.key === 'Enter') $('joinBtn').click(); });
+$('hiBtn').onclick = () => { if (conn && conn.open) { conn.send({ t: 'hi5' }); $('hiNote').textContent = 'High five sent!'; } };
+window.addEventListener('beforeunload', () => { try { peer && peer.destroy(); } catch (e) {} });
+</script>
+</body>
+</html>
